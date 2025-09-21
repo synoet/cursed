@@ -49,14 +49,18 @@ impl Keeper {
         Self::default()
     }
 
-    pub fn create_rune(&mut self, tome_id: TomeId, content: &[u8]) -> (RuneHeader, Vec<u8>) {
+    pub fn create_rune(
+        &mut self,
+        tome_id: TomeId,
+        content: &[u8],
+    ) -> Result<(RuneHeader, Vec<u8>), KeeperError> {
         let rune_id = RuneId(Uuid::new_v4());
         let rune_key: SymmetricKey = SymmetricKey::generate();
         let nonce = Nonce24::generate();
         let cipher = XChaCha20Poly1305::new(rune_key.deref().into());
         let encrypted = cipher
             .encrypt(XNonce::from_slice(&*nonce), content)
-            .expect("encryption failed");
+            .map_err(|_| KeeperError::EncryptionFailed)?;
 
         let header = RuneHeader {
             tome_id,
@@ -71,7 +75,7 @@ impl Keeper {
 
         self.owned_rune_keys.insert(rune_id.clone(), rune_key);
 
-        (header, encrypted)
+        Ok((header, encrypted))
     }
 
     pub fn request_rune(&self, tome_id: TomeId, rune_id: RuneId) -> UnlockRequest {
@@ -140,17 +144,18 @@ impl Keeper {
             .decrypt(nonce, grant.wrapped_kb.as_slice())
             .map_err(|_| KeeperError::DecryptionFailed)?;
 
-        let owner_signing_key =
-            VerifyingKey::from_bytes(&header.keeper_signing_pk.0).expect("invalid signing key");
+        let owner_signing_key = VerifyingKey::from_bytes(&header.keeper_signing_pk.0)
+            .map_err(|_| KeeperError::InvalidKey)?;
 
         let wrapped_sig = Signature::from_bytes(&grant.wrapped_sig.0);
 
         // Verify that the owner's signing key signed the wrapped key
         owner_signing_key
             .verify_strict(&grant.wrapped_kb, &wrapped_sig)
-            .expect("invalid signature");
+            .map_err(|_| KeeperError::InvalidSignature)?;
 
-        let unwrapped_rune_key = CryptoKey::<32>::try_from_slice(decrypted_kb.as_slice()).unwrap();
+        let unwrapped_rune_key = SymmetricKey::try_from_slice(decrypted_kb.as_slice())
+            .map_err(|_| KeeperError::InvalidKey)?;
 
         self.owned_rune_keys
             .insert(grant.rune_id, unwrapped_rune_key);
@@ -192,9 +197,9 @@ mod tests {
         let alice_content = b"Alice's secret data";
         let bob_content = b"Bob's secret data";
 
-        let (rune_header, rune_content) = alice.create_rune(tome_id.clone(), alice_content);
+        let (rune_header, rune_content) = alice.create_rune(tome_id.clone(), alice_content).unwrap();
 
-        let (bob_rune_header, bob_rune_content) = bob.create_rune(tome_id.clone(), bob_content);
+        let (bob_rune_header, bob_rune_content) = bob.create_rune(tome_id.clone(), bob_content).unwrap();
 
         let bob_request = bob.request_rune(tome_id.clone(), rune_header.clone().rune_id);
 
