@@ -121,6 +121,7 @@ impl Keeper {
             wrapped_kb,
             wrapped_nonce: nonce,
             wrapped_sig: CryptoKey::<64>(signature.to_bytes()),
+            requester_pk_ed25519: request.requester_pk_ed25519,
         })
     }
 

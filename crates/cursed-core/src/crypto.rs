@@ -1,7 +1,7 @@
-use std::ops::Deref;
-
+use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use rand::{RngCore, rngs::OsRng};
 use serde::{Deserialize, Serialize};
+use std::ops::Deref;
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct CryptoKey<const N: usize>(#[serde(with = "serde_bytes")] pub [u8; N]);
@@ -50,6 +50,20 @@ impl<const N: usize> CryptoKey<N> {
 
     pub fn as_slice(&self) -> &[u8; N] {
         &self.0
+    }
+
+    pub fn to_base64(&self) -> String {
+        URL_SAFE_NO_PAD.encode(self.0)
+    }
+
+    pub fn from_base64(s: &str) -> Result<Self, CryptoError> {
+        let bytes = URL_SAFE_NO_PAD
+            .decode(s)
+            .map_err(|_| CryptoError::InvalidLength {
+                expected: N,
+                got: s.len(),
+            })?;
+        Self::try_from_slice(&bytes)
     }
 }
 

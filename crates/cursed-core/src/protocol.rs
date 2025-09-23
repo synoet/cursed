@@ -1,12 +1,12 @@
 use crate::crypto::{Ed25519Pk, Ed25519Sig, Nonce24, X25519Pk};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Hash, PartialEq, Eq)]
 pub struct TomeId(pub Uuid);
 
-#[derive(Debug, Serialize, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 pub struct RuneId(pub Uuid);
 
 pub struct Tome {
@@ -18,7 +18,7 @@ pub struct Tome {
 
 /// Small metadata that travels with each encrypted block.
 /// Doesn't reveal content, but shows people how to interact with block
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RuneHeader {
     /// Uuid of the tome that this rune belongs to
     pub tome_id: TomeId,
@@ -38,6 +38,7 @@ pub struct RuneHeader {
     pub digest: [u8; 32],
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct RuneAnnounce {
     pub header: RuneHeader,
     /// The keeper's signature of the header
@@ -48,12 +49,14 @@ pub struct RuneAnnounce {
     pub total_chunks: u32,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct RuneChunk {
     pub block_id: Uuid,
     pub idx: u32,
     pub chunk: Vec<u8>,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct UnlockRequest {
     pub tome_id: TomeId,
     pub rune_id: RuneId,
@@ -67,6 +70,7 @@ pub struct UnlockRequest {
     pub requester_pk_ed25519: Ed25519Pk,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct UnlockGrant {
     pub rune_id: RuneId,
     /// This is an ephemeral public key of the owner's keeper's encryption key
@@ -80,11 +84,24 @@ pub struct UnlockGrant {
     pub wrapped_nonce: Nonce24,
     /// Verify the authenticity of the wrapped key
     pub wrapped_sig: Ed25519Sig,
+    /// The requester's public assymteric signing key
+    pub requester_pk_ed25519: Ed25519Pk,
 }
 
+#[derive(Serialize, Deserialize)]
 pub enum Frame {
     Announce(RuneAnnounce),
     Chunk(RuneChunk),
     UnlockRequest(UnlockRequest),
     UnlockGrant(UnlockGrant),
+}
+
+impl Frame {
+    pub fn to_bytes(&self) -> Result<Vec<u8>, bincode::Error> {
+        bincode::serialize(self)
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, bincode::Error> {
+        bincode::deserialize(bytes)
+    }
 }

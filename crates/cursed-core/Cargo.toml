@@ -1,0 +1,17 @@
+[package]
+name = "cursed-core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde = { version = "1.0.225", features = ["derive"] }
+serde_bytes = "0.11.19"
+uuid = {version="1.18.1", features=["serde", "v4"]}
+ed25519-dalek = {version= "2", features = ["rand_core"]}
+x25519-dalek = {version="2", features = ["static_secrets"]}
+chacha20poly1305 = "0.10"
+rand = "0.8"
+sha2 = "0.10"
+bincode = "1"
+thiserror = "2.0.16"
+base64 = "0.22.1"
