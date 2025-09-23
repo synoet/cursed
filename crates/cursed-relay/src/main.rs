@@ -1,21 +1,19 @@
 mod extractors;
 use axum::{
-    Json, Router,
     extract::{
-        State,
-        ws::{Message, WebSocket, WebSocketUpgrade},
-    },
-    response::IntoResponse,
-    routing::{any, get},
+        ws::{Message, WebSocket, WebSocketUpgrade}, State
+    }, response::IntoResponse, routing::{any, get, post}, Json, Router
 };
 use cursed_core::protocol::{Frame, TomeId};
 use dashmap::DashMap;
 use extractors::*;
 use futures::SinkExt;
+use rooms::Room;
 use serde::Serialize;
 
 use axum::extract::connect_info::ConnectInfo;
 use futures_util::stream::StreamExt;
+use uuid::Uuid;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
@@ -51,6 +49,7 @@ async fn main() {
 
     let app = Router::new()
         .route("/room/{room_id}", any(ws_handler))
+        .route("/room", post(create_room))
         .route("/rooms", get(rooms_handler))
         .layer(
             TraceLayer::new_for_http()
@@ -74,6 +73,16 @@ async fn main() {
 #[derive(Serialize)]
 pub struct TomesResponse {
     rooms: Vec<TomeId>,
+}
+
+#[axum_macros::debug_handler]
+async fn create_room(State(state): State<AppState>) -> impl IntoResponse {
+    let room_id = TomeId(Uuid::new_v4());
+    state.rooms.insert(
+        room_id.clone(), 
+        TomeRoom(Arc::new(Room::new(100)))
+    );
+    Json(room_id)
 }
 
 #[axum_macros::debug_handler]
