@@ -78,16 +78,17 @@ impl Keeper {
         Ok((header, encrypted))
     }
 
-    pub fn request_rune(&self, tome_id: TomeId, rune_id: RuneId) -> UnlockRequest {
+    pub fn request_rune(&self, tome_id: TomeId, rune_header: &RuneHeader) -> UnlockRequest {
         let public_key = PublicKey::from(&self.encryption_secret).to_bytes();
 
         UnlockRequest {
             tome_id,
-            rune_id,
+            rune_id: rune_header.rune_id.clone(),
             requester_pk_x25519: X25519Pk::from_bytes(public_key),
             requester_pk_ed25519: Ed25519Pk::from_bytes(
                 self.signing_key.verifying_key().to_bytes(),
             ),
+            keeper_pk_ed25519: rune_header.keeper_signing_pk,
         }
     }
 
@@ -198,11 +199,13 @@ mod tests {
         let alice_content = b"Alice's secret data";
         let bob_content = b"Bob's secret data";
 
-        let (rune_header, rune_content) = alice.create_rune(tome_id.clone(), alice_content).unwrap();
+        let (rune_header, rune_content) =
+            alice.create_rune(tome_id.clone(), alice_content).unwrap();
 
-        let (bob_rune_header, bob_rune_content) = bob.create_rune(tome_id.clone(), bob_content).unwrap();
+        let (bob_rune_header, bob_rune_content) =
+            bob.create_rune(tome_id.clone(), bob_content).unwrap();
 
-        let bob_request = bob.request_rune(tome_id.clone(), rune_header.clone().rune_id);
+        let bob_request = bob.request_rune(tome_id.clone(), &rune_header);
 
         let alice_grant = alice.grant_rune(bob_request).unwrap();
 
@@ -226,7 +229,7 @@ mod tests {
             KeeperError::MissingKey
         ));
 
-        let alice_request = alice.request_rune(tome_id.clone(), bob_rune_header.clone().rune_id);
+        let alice_request = alice.request_rune(tome_id.clone(), &bob_rune_header);
         let bob_grant = bob.grant_rune(alice_request).unwrap();
         alice.accept_grant(&bob_rune_header, bob_grant).unwrap();
 

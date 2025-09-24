@@ -155,7 +155,7 @@ async fn handle_socket(
                     Ok(Frame::UnlockRequest(request)) => {
                         // Route to specific keeper who owns the rune
                         // You'd need to track who owns what
-                        room.send_to(&request.requester_pk_ed25519, Message::Binary(data))
+                        room.send_to(&request.keeper_pk_ed25519, Message::Binary(data))
                             .inspect_err(|err| {
                                 tracing::error!(err = ?err, "Failed to send unlock request");
                             })

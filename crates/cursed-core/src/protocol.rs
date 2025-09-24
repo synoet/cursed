@@ -68,6 +68,7 @@ pub struct UnlockRequest {
     /// Can be used in the future to verify the requester's identity
     /// or block them from requesting this rune ?
     pub requester_pk_ed25519: Ed25519Pk,
+    pub keeper_pk_ed25519: Ed25519Pk,
 }
 
 #[derive(Serialize, Deserialize)]
